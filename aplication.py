@@ -3,6 +3,13 @@ from flask import render_template
 from flask_cors import CORS
 import requests
 
+application=Flask(__name__)
+
+@application.route("/get-users/<username>")
+def get_users(username):
+    # lógica del problema
+    return "alo " + username
+"""
 #App para hacer TO-DOs
 id=0
 dic=dict()
@@ -33,8 +40,7 @@ def complete_todos():
           pass
 
 
-
-""" 
+--------------------------------------------------------------------------- 
 @aplication.route('/')
 def hello_word():
           print(request)
