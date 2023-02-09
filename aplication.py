@@ -9,8 +9,26 @@ application=Flask(__name__)
 def get_users(username):
     # lógica del problema
     return "alo " + username
+
+@application.post("/new-user")
+def create_todos():
+          diccionario={
+              "nombre":"Diego",
+              "apellido":"Salinas"
+          }
+          return "ok"  
+        
+@application.route("/get-todos")
+def get_todos():
+          dic={}
+          dic.update({"id":1,
+              "todo":"Tarea 1",
+              "checked":False
+          })
+          return dic          
+
 """
-#App para hacer TO-DOs
+#App para hacer TO-DO
 id=0
 dic=dict()
 aplication = Flask(__name__)
