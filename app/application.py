@@ -274,8 +274,6 @@ def registrar_localizaciones():
         if type(sql)==list:
             return jsonify({'mensaje':"No se ha podido registrar la localizacion ya que los siguientes valores son nulos, cadena vacía y/o no cumplen con los requisitos. Compruebe estos parametros y vuelva a intentarlo: {}.".format(",".join(sql))})
 
-        if(sql=="faltan datos"):
-            return jsonify({'mensaje':"No se ha podido registrar la localizacion ya que faltan datos o algún dato está incorrecto."})
         cursor=conexion.connection.cursor()
         cursor.execute(sql)
         # Confirma la accion de insercción.
@@ -291,6 +289,11 @@ def registrar_generos():
         #Conexion a base de datos
         cursor=conexion.connection.cursor()
         sql=comprobar_post_generos_especies(request,"generos")
+
+        #comprobamos si nos ha pasado una lista con los valores que están vacios o en caso de ser numerico sea negativo
+        if type(sql)==list:
+            return jsonify({'mensaje':"No se ha podido el genero ya que los siguientes valores son nulos, cadena vacía y/o no cumplen con los requisitos. Compruebe estos parametros y vuelva a intentarlo: {}.".format(",".join(sql))})
+
         cursor.execute(sql)
         # Confirma la accion de insercción.
         conexion.connection.commit() 
@@ -307,9 +310,10 @@ def registrar_especies():
         #Conexion a base de datos
         cursor=conexion.connection.cursor()
         sql=comprobar_post_generos_especies(request,"especies")
-        #Comprobamos que la validacion ha devuelto una secuecia sql o un error
-        if sql=="faltan datos":
-            return jsonify({'mensaje':"No se ha podido registrar la especie ya que faltan datos"})
+        #comprobamos si nos ha pasado una lista con los valores que están vacios o en caso de ser numerico sea negativo
+        if type(sql)==list:
+            return jsonify({'mensaje':"No se ha podido registrar la especie ya que los siguientes valores son nulos, cadena vacía y/o no cumplen con los requisitos. Compruebe estos parametros y vuelva a intentarlo: {}.".format(",".join(sql))})
+
         #En caso contrario seguimos con la ejecucion
         cursor.execute(sql)
         # Confirma la accion de insercción.
@@ -404,6 +408,10 @@ def comprobar_post_personajes(consulta:request):
                 if not confirmacion:
                     confirmacion = True
                 lista.append(clave)                    
+        else:
+            if not confirmacion:
+                confirmacion = True
+            lista.append(clave)                    
         
                         
 
@@ -498,15 +506,59 @@ def comprobar_post_generos_especies(consulta:request,tipo:str):
     else:
         datos=consulta.form
         
-    gn_nombre=datos.get('nombre',"")
-    gn_descripcion=datos.get('descripcion',"")        
-    #Inicializamos sql 
-    #Armamos la consulta dependiendo de los datos nos hayan pasado
-    sql="faltan datos"
-    if tipo=="especies" and len(gn_nombre)>=1 and len(gn_descripcion)>=1:
-        sql="INSERT INTO especies(ID,Nombre,Descripcion) VALUES ({0},'{1}','{2}')".format("null",gn_nombre,gn_descripcion)
-    elif gn_nombre!="" and gn_descripcion!="":
-        sql="INSERT INTO generos(ID,Nombre,Descripcion) VALUES ({0},'{1}','{2}')".format("null",gn_nombre,gn_descripcion)
+    gn_nombre=datos.get('nombre')
+    gn_descripcion=datos.get('descripcion')        
+    
+#lista que rellenaremos con los datos que se han pasado vacios
+    lista=[]
+    #variable para comprobar si algún dato es cadenaa vacia
+    confirmacion=False
+
+    #Lista de los datos para realizar comprobaciones
+    datos=[
+    ("Nombre",gn_nombre),    
+    ("Descripcion",gn_descripcion)
+    ]
+ 
+
+    # Construir la consulta SQL con los datos que se hayan pasado
+    parametros = []
+
+    #Realizamos que los datos que ha pasado no sean cadena vacia y si es un valor que sea positivo
+    for clave, valor in datos:
+        if valor is not None:
+            if valor!="":       
+                 # Definimos el patrón de expresión regular para un número entero (segun San Google)
+                patron = r'^-?\d+$'
+                if bool(re.match(patron,str(valor))):
+                    if int(valor)>0:
+                        parametros.append("{1}".format(clave,valor))
+                    else:
+                        if not confirmacion:
+                            confirmacion = True
+                        lista.append(clave)
+                else:
+                    parametros.append("'{1}'".format(clave,valor))
+            else:
+                if not confirmacion:
+                    confirmacion = True
+                lista.append(clave)                    
+        else:
+            if not confirmacion:
+                confirmacion = True
+            lista.append(clave)   
+                        
+
+    #comprobamos si hay algún valor con cadena vacía y o si es numerico que su valor sea negativo
+    if confirmacion:
+        print("entra")
+        return lista
+
+
+    if tipo=="especies":
+        sql="INSERT INTO especies(ID,Nombre,Descripcion) VALUES (null,{})".format(", ".join(parametros))
+    else:
+        sql="INSERT INTO generos(ID,Nombre,Descripcion) VALUES (null,{})".format(", ".join(parametros))
 
     return sql
 
@@ -529,15 +581,14 @@ def modificar_personajes(id):
         if sql=="insertar dato":
             return jsonify({'mensaje':"Tiene que insertar minimo un datos para poder modificar al personaje, intentelo de nuevo introduciendo un dato modificable.\nEntre los datos modificables tenemos nombre,apellidos,edad,descripcion,padre,madre,especie,imagen,nacimiento,localizacion,aparicion."})
 
+        #comprobamos si nos ha pasado una lista con los valores que están vacios o en caso de ser numerico sea negativo
+        if type(sql)==list:
+            return jsonify({'mensaje':"Los siguientes valores que has pasado son cadena vacía o en caso de ser valor numerico son negativos: {}.".format(",".join(sql))})
+
         #Realizamos comprobacion si nos ha devuelto que algún dato que dependa de otra tabla esta introduciendo un valor invalido
         if len(sql.split())==1:
             return jsonify({'mensaje':"No se puede modificar el/la {} debido a que este dato depende de su existencia en la base de datos de la misma tabla u otra de la que dependa.".format(sql)})
 
-
-        #comprobamos si nos ha pasado una lista con los valores que están vacios o en caso de ser numerico sea negativo
-        if type(sql)==list:
-            return jsonify({'mensaje':"Los siguientes valores que has pasado son cadena vacía o en caso de ser valor numerico son negativos: {}.".format(",".join(sql))})
-        
         #Si todo va bien ejecutamos la consulta
         cursor=conexion.connection.cursor()       
         cursor.execute(sql)
@@ -584,7 +635,7 @@ def modificar_especies(id):
     if not id.isdigit():
         return jsonify({'mensaje':"El id que tienes que introducir tiene que ser un valor numerico."}) 
     else:#si el id es numerico comprobar que exista una especie que cuadre con el id
-        if id not in get_id_especies():
+        if int(id) not in get_id_especies():
             return jsonify({'mensaje':"No existe ninguna especie con el id que ha especificado.Por favor, verifique que el id este relacionado a un genero existente y vuelva a intentarlo."})
        
     try:
@@ -596,7 +647,7 @@ def modificar_especies(id):
 
         #Realizamos comprobacion si nos ha devuelto que algún dato que dependa de otra tabla esta introduciendo un valor invalido
         if len(sql.split())==1:
-            return jsonify({'mensaje':"No se puede modificar el/la {} debido a que este dato depende de su existencia en la base de datos, ya sea de la misma tabla u otra de la que dependa.".format(sql)})
+            return jsonify({'mensaje':"No se puede modificar el/la {} el dato reemplazante es cadena vacía.".format(sql)})
 
         #Realizamos la conexión si todo ha ido bien
         cursor=conexion.connection.cursor()       
@@ -622,9 +673,9 @@ def modificar_generos(id):
         sql=comprobar_put_especies_generos(request,int(id),"generos")
         
 
-        #Comprobamos que lo que nos han pasado respete las normlas impuestas    
+        #Comprobamos que lo que nos han pasado respete las normas impuestas    
         if len(sql.split())==1:
-            return jsonify({'mensaje':"No se puede modificar el/la {} debido a que este dato depende de su existencia en la base de datos de la misma tabla u otra de la que dependa.".format(sql)})
+            return jsonify({'mensaje':"No se puede modificar el/la {} el valor reemplazante es una cadena vacía.".format(sql)})
 
         #comprobamos si ha introducido al menos un dato a modificar, sino devuelve un mensaje
         if sql=="insertar dato":
@@ -860,7 +911,10 @@ def eliminar_personajes(id):
         return jsonify({'mensaje':"El id que tienes que introducir tiene que ser un valor numerico."}) 
     else:#si el id es numerico comprobar que exista una especie que cuadre con el id
         if int(id) not in get_dato_personajes("ID"):
-            return jsonify({'mensaje':"No existe ningún prsonaje con el id que ha especificado.Por favor, verifique que el id este relacionado a una especie existente y vuelva a intentarlo."})
+            return jsonify({'mensaje':"No existe ningún personaje con el id que ha especificado. Por favor, verifique que el id esté relacionado un personaje existente y vuelva a intentarlo."})
+
+    if int(id) in get_dato_personajes("Padre") or int(id) in get_dato_personajes("Madre"):
+        return jsonify({'mensaje':"No se puede eliminar el personaje ya que es padre o madre de un personaje, modifique los personajes ante de volver a intentarlo."}) 
 
     try:
         sql="DELETE FROM personajes WHERE ID={0}".format(id)
@@ -1069,3 +1123,5 @@ if __name__ == "__main__":
     app.register_error_handler(404,pagina_no_encontrada)
     app.register_error_handler(405,enlace_no_encontrada)
     app.run()
+
+    #aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
