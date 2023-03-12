@@ -1,4 +1,9 @@
 FLASK
 flask
 CORS
+flask-cors
 requests
+flask-mysql
+flask-mysqldb
+pymysql
+numpy
